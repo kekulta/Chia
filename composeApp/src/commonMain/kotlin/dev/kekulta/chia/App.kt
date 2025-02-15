@@ -5,6 +5,7 @@ import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
@@ -27,7 +28,6 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +55,7 @@ fun App() {
         TopSheet(state) { conn, progress ->
             val otherVisibility = 1 - (progress / 0.5f).coerceIn(0f, 1f)
             val listVisibility = ((progress - 0.5f) / 0.5f).coerceIn(0f, 1f)
+
             LaunchedEffect(state.currentValue) {
                 if (state.currentValue == TopSheetState.HalfExpanded) {
                     state2.scrollToItem(0)
@@ -63,15 +64,18 @@ fun App() {
 
             Column {
                 Box(modifier = Modifier.weight(1f)) {
-                    LazyColumn(
-                        state = state2,
-                        reverseLayout = true,
-                        modifier = Modifier.fillMaxWidth().nestedScroll(conn)
-                            .graphicsLayer(alpha = listVisibility),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        items(50) {
-                            Text("El: $it")
+                    Hider(listVisibility) {
+                        LazyColumn(
+                            state = state2,
+                            reverseLayout = true,
+                            modifier = Modifier.fillMaxWidth().nestedScroll(conn),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            items(50) {
+                                Text(
+                                    "El: $it",
+                                    modifier = Modifier.clickable { println("El: $it") })
+                            }
                         }
                     }
 
@@ -84,6 +88,16 @@ fun App() {
 
                 Text("Handle")
             }
+        }
+    }
+}
+
+@Composable
+fun Hider(alpha: Float, content: @Composable () -> Unit) {
+    Box(modifier = Modifier.graphicsLayer(alpha = alpha)) {
+        content()
+        if (alpha == 0f) {
+            Box(modifier = Modifier.matchParentSize().clickable { println("intercept") }) {}
         }
     }
 }
@@ -112,7 +126,6 @@ fun TopSheet(
     content: @Composable BoxScope.(nestedScroll: NestedScrollConnection, progress: Float) -> Unit
 ) {
     val localDensity = LocalDensity.current
-    val coroutineScope = rememberCoroutineScope()
 
     val navigationBarHeight = LocalWindowInsets.current.calculateBottomPadding()
         .coerceAtLeast(16.dp)
@@ -179,7 +192,7 @@ fun TopSheet(
                     val shouldFling = anchors.positionOf(state.currentValue) != state.offset
 
                     if (shouldFling) {
-                        return state.settle(available.y)
+                        return state.settle(available.y.coerceIn(-100f, 100f))
                             .let { available }
                     }
 
