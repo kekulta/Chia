@@ -5,7 +5,6 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import colorSeed
 import com.materialkolor.dynamicColorScheme
 
 @Composable
@@ -23,7 +22,7 @@ fun ChiaTheme(
             )
     }
 
-    MaterialTheme(colorScheme = palette, content = content)
+    MaterialTheme(colorScheme = palette, typography = typography, content = content)
 }
 
 expect fun tryGetPlatformPalette(darkTheme: Boolean): ColorScheme?
