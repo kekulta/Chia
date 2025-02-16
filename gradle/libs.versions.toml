@@ -8,6 +8,8 @@ androidx-lifecycle = "2.8.4"
 compose-multiplatform = "1.7.0"
 kotlin = "2.1.0"
 koin = "4.0.2"
+material = "1.12.0"
+materialKolor = "2.0.2"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
@@ -16,6 +18,8 @@ androidx-lifecycle-runtime-compose = { group = "org.jetbrains.androidx.lifecycle
 koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin" }
 koin-compose = { group = "io.insert-koin", name = "koin-compose", version.ref = "koin" }
 koin-compose-viewmodel = { group = "io.insert-koin", name = "koin-compose-viewmodel", version.ref = "koin" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+material-kolor = { module = "com.materialkolor:material-kolor", version.ref = "materialKolor" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

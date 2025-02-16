@@ -15,13 +15,18 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
@@ -32,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -41,6 +45,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import colorBackground
+import colorEditor
+import colorOnEditor
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import kotlin.math.roundToInt
 
@@ -48,56 +55,84 @@ import kotlin.math.roundToInt
 @Composable
 @Preview
 fun App() {
-    MaterialTheme {
-        val state = rememberTopSheetState()
-        val state2 = rememberLazyListState()
+    ChiaTheme {
+        Box(modifier = Modifier.fillMaxSize().background(colorBackground)) {
+            val state = rememberTopSheetState()
+            val state2 = rememberLazyListState()
 
-        TopSheet(state) { conn, progress ->
-            val otherVisibility = 1 - (progress / 0.5f).coerceIn(0f, 1f)
-            val listVisibility = ((progress - 0.5f) / 0.5f).coerceIn(0f, 1f)
-
-            LaunchedEffect(state.currentValue) {
-                if (state.currentValue == TopSheetState.HalfExpanded) {
-                    state2.scrollToItem(0)
-                }
-            }
-
-            Column {
-                Box(modifier = Modifier.weight(1f)) {
-                    Hider(listVisibility) {
-                        LazyColumn(
-                            state = state2,
-                            reverseLayout = true,
-                            modifier = Modifier.fillMaxWidth().nestedScroll(conn),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            items(50) {
-                                Text(
-                                    "El: $it",
-                                    modifier = Modifier.clickable { println("El: $it") })
-                            }
-                        }
-                    }
-
+            TopSheetEditorLayout(state, state2, transactionsContent = {
+                items(50) {
                     Text(
-                        "Other content", modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .graphicsLayer(alpha = otherVisibility)
-                    )
+                        "El: $it",
+                        modifier = Modifier.clickable { println("El: $it") })
                 }
+            }, editorContent = {
 
-                Text("Handle")
-            }
+                Text(
+                    "Other content",
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            })
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun Hider(alpha: Float, content: @Composable () -> Unit) {
-    Box(modifier = Modifier.graphicsLayer(alpha = alpha)) {
-        content()
-        if (alpha == 0f) {
-            Box(modifier = Modifier.matchParentSize().clickable { println("intercept") }) {}
+fun TopSheetEditorLayout(
+    topSheetState: AnchoredDraggableState<TopSheetState>,
+    transactionsState: LazyListState,
+    modifier: Modifier = Modifier,
+    transactionsContent: LazyListScope.() -> Unit,
+    editorContent: @Composable BoxScope.() -> Unit
+) {
+    TopSheet(topSheetState, modifier = modifier) { conn, progress ->
+        val otherVisibility = 1 - (progress / 0.5f).coerceIn(0f, 1f)
+        val listVisibility = ((progress - 0.5f) / 0.5f).coerceIn(0f, 1f)
+
+        LaunchedEffect(topSheetState.currentValue) {
+            if (topSheetState.currentValue == TopSheetState.HalfExpanded) {
+                transactionsState.scrollToItem(0)
+            }
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                LazyColumn(
+                    state = transactionsState,
+                    reverseLayout = true,
+                    modifier = Modifier.fillMaxWidth().nestedScroll(conn)
+                        .graphicsLayer(alpha = listVisibility),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    transactionsContent()
+                }
+
+                if (listVisibility == 0f) {
+                    Box(modifier = Modifier.matchParentSize().nestedScroll(conn))
+                }
+
+                if (otherVisibility != 0f) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .align(Alignment.BottomCenter)
+                            .graphicsLayer(alpha = otherVisibility)
+                    ) {
+                        editorContent()
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .padding(bottom = 10.dp, top = 20.dp)
+                    .size(width = 36.dp, height = 8.dp)
+                    .background(colorOnEditor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+            )
         }
     }
 }
@@ -113,7 +148,7 @@ fun rememberTopSheetState() = remember {
         initialValue = TopSheetState.HalfExpanded,
         anchors = DraggableAnchors { },
         positionalThreshold = { it * .1f },
-        snapAnimationSpec = tween(300),
+        snapAnimationSpec = tween(100),
         velocityThreshold = { 0f },
         decayAnimationSpec = exponentialDecay(frictionMultiplier = 3f)
     )
@@ -123,20 +158,25 @@ fun rememberTopSheetState() = remember {
 @Composable
 fun TopSheet(
     state: AnchoredDraggableState<TopSheetState>,
+    modifier: Modifier = Modifier,
     content: @Composable BoxScope.(nestedScroll: NestedScrollConnection, progress: Float) -> Unit
 ) {
     val localDensity = LocalDensity.current
 
+    val statusBarHeight = LocalWindowInsets.current.calculateTopPadding()
+        .coerceAtLeast(16.dp)
     val navigationBarHeight = LocalWindowInsets.current.calculateBottomPadding()
         .coerceAtLeast(16.dp)
 
     var isFlinging by remember { mutableStateOf(false) }
 
     BoxWithConstraints(
+        modifier = modifier,
         contentAlignment = Alignment.TopCenter,
     ) {
         val fullHeight = constraints.maxHeight.toFloat()
-        val halfHeight = fullHeight / 2
+        val halfHeight = fullHeight / 1.8f
+
         val expandHeight =
             with(localDensity) { (fullHeight - navigationBarHeight.toPx() - 16.dp.toPx()) }
 
@@ -192,7 +232,7 @@ fun TopSheet(
                     val shouldFling = anchors.positionOf(state.currentValue) != state.offset
 
                     if (shouldFling) {
-                        return state.settle(available.y.coerceIn(-100f, 100f))
+                        return state.settle(available.y.coerceIn(-200f, 200f))
                             .let { available }
                     }
 
@@ -214,7 +254,10 @@ fun TopSheet(
         Box(
             modifier = Modifier
                 .offset { IntOffset(x = 0, y = -(expandHeight - state.offset).roundToInt()) }
-                .background(Color.DarkGray)
+                .background(
+                    colorEditor,
+                    RoundedCornerShape(bottomStart = 48.dp, bottomEnd = 48.dp)
+                )
                 .fillMaxWidth()
                 .anchoredDraggable(state, orientation = Orientation.Vertical)
                 .height(height),
