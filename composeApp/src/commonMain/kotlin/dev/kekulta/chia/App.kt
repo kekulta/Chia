@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -26,13 +27,16 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.input.InputTransformation.Companion.transformInput
+import androidx.compose.foundation.text.input.OutputTransformation
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.delete
@@ -62,7 +66,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
@@ -107,6 +110,38 @@ fun App() {
                     },
                     editorContent = {
 
+                        val transformation = OutputTransformation {
+                            val wholePart =
+                                originalText.takeWhile { it != '.' }.toString()
+
+                            val count = wholePart.length / 3
+                            val offset = (wholePart.length % 3)
+
+                            if (offset == 0) {
+                                repeat(count - 1) {
+                                    insert(3 * (it + 1) + it, ",")
+                                }
+                            } else {
+                                repeat(count) {
+                                    insert(offset + 3 * it + it, ",")
+                                }
+                            }
+
+
+
+                            if (originalText.lastOrNull() == '.') {
+                                append(buildAnnotatedString {
+                                    withStyle(
+                                        SpanStyle(
+                                            color = Color.Red
+                                        )
+                                    ) {
+                                        append("0")
+                                    }
+                                })
+                            }
+                        }
+
                         BoxWithConstraints(
                             modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp)
                         ) {
@@ -121,47 +156,36 @@ fun App() {
                                             width = constraints.maxWidth.toFloat(),
                                             minFontSize = MaterialTheme.typography.displayLarge.fontSize,
                                             maxFontSize = 100.sp,
-                                            text = textState.text.toString()
+                                            text = textState.text.toString().let {
+                                                val count = it.length / 3
+                                                val offset = it.length % 3
+
+                                                if (offset == 0) {
+                                                    it + ",".repeat((count - 1).coerceAtLeast(0))
+                                                } else {
+                                                    it + ",".repeat(count)
+                                                }
+                                            }
                                         )
                                     )
 
-                                    BasicTextField(
-                                        outputTransformation = {
-                                            val wholePart =
-                                                originalText.takeWhile { it != '.' }.toString()
+                                    val state = rememberScrollState()
 
-                                            val count = wholePart.length / 3
-                                            val offset = (wholePart.length % 3)
-
-                                            if (offset == 0) {
-                                                repeat(count - 1) {
-                                                    insert(3 * (it + 1) + it, ",")
-                                                }
-                                            } else {
-                                                repeat(count) {
-                                                    insert(offset + 3 * it + it, ",")
-                                                }
-                                            }
-
-
-                                            if (originalText.lastOrNull() == '.') {
-                                                append(buildAnnotatedString {
-                                                    withStyle(
-                                                        SpanStyle(
-                                                            color = Color.Red
-                                                        )
-                                                    ) {
-                                                        append("0")
-                                                    }
-                                                })
-                                            }
-                                        },
-                                        modifier = Modifier.focusRequester(focusRequester),
-                                        lineLimits = TextFieldLineLimits.SingleLine,
-                                        state = textState,
-                                        textStyle = style,
-                                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                    )
+                                    LazyRow {
+                                        item {
+                                            Text("RUB")
+                                        }
+                                        item {
+                                            BasicTextField(
+                                                outputTransformation = transformation,
+                                                modifier = Modifier.focusRequester(focusRequester).width(IntrinsicSize.Min),
+                                                lineLimits = TextFieldLineLimits.SingleLine,
+                                                state = textState,
+                                                textStyle = style,
+                                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                            )
+                                        }
+                                    }
                                 },
                             )
                         }
