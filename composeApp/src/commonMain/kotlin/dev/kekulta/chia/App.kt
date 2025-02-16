@@ -3,7 +3,6 @@ package dev.kekulta.chia
 
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +31,14 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.InputTransformation.Companion.transformInput
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.delete
+import androidx.compose.foundation.text.input.insert
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -42,36 +49,189 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.kekulta.chia.util.calcAdaptiveFont
+import kotlinx.coroutines.awaitCancellation
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
-fun Keyboard(modifier: Modifier = Modifier) {
+@Preview
+fun App() {
+    ChiaTheme {
+        val windowInsets = WindowInsets
+            .systemBars
+            .asPaddingValues()
+
+        val textState = rememberTextFieldState()
+        val focusRequester = remember { FocusRequester() }
+
+        CompositionLocalProvider(LocalWindowInsets provides windowInsets) {
+            Box(modifier = Modifier.fillMaxSize().background(colorBackground)) {
+                val topSheetState = rememberTopSheetState()
+                val listState = rememberLazyListState()
+
+                TopSheetEditorLayout(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    topSheetState = topSheetState,
+                    transactionsState = listState,
+                    transactionsContent = {
+                        items(50) {
+                            Text(
+                                "El: $it",
+                                modifier = Modifier.clickable { println("El: $it") })
+                        }
+                    },
+                    editorContent = {
+
+                        BoxWithConstraints(
+                            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp)
+                        ) {
+                            InterceptPlatformTextInput(
+                                interceptor = { _, _ -> awaitCancellation() },
+                                content = {
+                                    val style = MaterialTheme.typography.displayLarge.copy(
+                                        color = colorOnEditor,
+                                        textAlign = TextAlign.End,
+                                        fontSize = calcAdaptiveFont(
+                                            height = constraints.maxHeight.toFloat(),
+                                            width = constraints.maxWidth.toFloat(),
+                                            minFontSize = MaterialTheme.typography.displayLarge.fontSize,
+                                            maxFontSize = 100.sp,
+                                            text = textState.text.toString()
+                                        )
+                                    )
+
+                                    BasicTextField(
+                                        outputTransformation = {
+                                            val wholePart =
+                                                originalText.takeWhile { it != '.' }.toString()
+
+                                            val count = wholePart.length / 3
+                                            val offset = (wholePart.length % 3)
+
+                                            if (offset == 0) {
+                                                repeat(count - 1) {
+                                                    insert(3 * (it + 1) + it, ",")
+                                                }
+                                            } else {
+                                                repeat(count) {
+                                                    insert(offset + 3 * it + it, ",")
+                                                }
+                                            }
+
+
+                                            if (originalText.lastOrNull() == '.') {
+                                                append(buildAnnotatedString {
+                                                    withStyle(
+                                                        SpanStyle(
+                                                            color = Color.Red
+                                                        )
+                                                    ) {
+                                                        append("0")
+                                                    }
+                                                })
+                                            }
+                                        },
+                                        modifier = Modifier.focusRequester(focusRequester),
+                                        lineLimits = TextFieldLineLimits.SingleLine,
+                                        state = textState,
+                                        textStyle = style,
+                                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    )
+                                },
+                            )
+                        }
+
+                        LaunchedEffect(Unit) {
+                            focusRequester.requestFocus()
+                        }
+                    },
+                    keyboardContent = {
+                        Keyboard(
+                            modifier = Modifier.align(Alignment.Center)
+                                .padding(bottom = LocalWindowInsets.current.calculateBottomPadding())
+                                .padding(top = 6.dp)
+                                .padding(bottom = 4.dp)
+                                .padding(horizontal = 6.dp)
+                                .aspectRatio(1f).fillMaxSize(),
+                            textState = textState,
+                        )
+                    })
+            }
+        }
+    }
+}
+
+@Composable
+fun Keyboard(modifier: Modifier = Modifier, textState: TextFieldState) {
     val pad = 6.dp
+
+    fun add(num: String) {
+        textState.edit {
+            if (num == ".") {
+                val index = textState.text.indexOf('.')
+                if (index != -1 && !selection.contains(index)) {
+                    return
+                }
+            }
+
+            if (hasSelection) {
+                replace(selection.start, selection.end, num)
+                placeCursorBeforeCharAt(selection.end)
+            } else {
+                insert(selection.start, num)
+            }
+        }
+    }
+
+    fun remove() {
+        textState.edit {
+            if (hasSelection) {
+                delete(selection.start, selection.end)
+            } else if (selection.start > 0) {
+                delete(selection.start - 1, selection.end)
+            }
+        }
+    }
 
     Box(
         modifier = modifier
     ) {
         Row {
             Column(modifier = Modifier.weight(3f)) {
-                repeat(3) {
+                repeat(3) { row ->
                     Row(Modifier.weight(1f)) {
-                        repeat(3) {
+                        repeat(3) { col ->
+                            val num = (10 - ((col + 1) + row * 3)).toString()
                             KeyboardButton(
                                 modifier = Modifier.padding(pad).weight(1f),
                                 type = KeyboardButtonType.DEFAULT,
-                                text = it.toString()
+                                text = num,
+                                onClick = { add(num) }
                             )
                         }
                     }
@@ -87,14 +247,16 @@ fun Keyboard(modifier: Modifier = Modifier) {
                     KeyboardButton(
                         modifier = Modifier.padding(pad).weight(1f),
                         type = KeyboardButtonType.DEFAULT,
-                        text = "."
+                        text = ".",
+                        onClick = { add(".") }
                     )
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
                 KeyboardButton(
                     modifier = Modifier.padding(pad).weight(1f),
-                    type = KeyboardButtonType.DELETE
+                    type = KeyboardButtonType.DELETE,
+                    onClick = { remove() }
                 )
                 KeyboardButton(
                     modifier = Modifier.padding(pad).weight(3f),
@@ -107,61 +269,12 @@ fun Keyboard(modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-@Preview
-fun App() {
-    ChiaTheme {
-        val windowInsets = WindowInsets
-            .systemBars
-            .asPaddingValues()
-
-        CompositionLocalProvider(LocalWindowInsets provides windowInsets) {
-            Box(modifier = Modifier.fillMaxSize().background(colorBackground)) {
-                val state = rememberTopSheetState()
-                val state2 = rememberLazyListState()
-
-                TopSheetEditorLayout(
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    topSheetState = state,
-                    transactionsState = state2,
-                    transactionsContent = {
-                        items(50) {
-                            Text(
-                                "El: $it",
-                                modifier = Modifier.clickable { println("El: $it") })
-                        }
-                    },
-                    editorContent = {
-
-                        Text(
-                            "Other content",
-                            modifier = Modifier.align(Alignment.BottomCenter)
-                        )
-
-                    },
-                    keyboardContent = {
-                        Keyboard(
-                            modifier = Modifier.align(Alignment.Center)
-                                .padding(bottom = LocalWindowInsets.current.calculateBottomPadding())
-                                .padding(top = 6.dp)
-                                .padding(bottom = 4.dp)
-                                .padding(horizontal = 6.dp)
-                                .aspectRatio(1f).fillMaxSize()
-
-                        )
-                    })
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
 fun TopSheetEditorLayout(
     topSheetState: AnchoredDraggableState<TopSheetState>,
     transactionsState: LazyListState,
     modifier: Modifier = Modifier,
     transactionsContent: LazyListScope.() -> Unit,
-    editorContent: @Composable BoxScope.() -> Unit,
+    editorContent: @Composable BoxScope.(NestedScrollConnection) -> Unit,
     keyboardContent: @Composable BoxScope.() -> Unit,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -211,15 +324,14 @@ fun TopSheetEditorLayout(
                         Box(modifier = Modifier.matchParentSize().nestedScroll(conn))
                     }
 
-                    if (otherVisibility != 0f) {
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .align(Alignment.BottomCenter)
-                                .graphicsLayer(alpha = otherVisibility)
-                        ) {
-                            editorContent()
-                        }
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .nestedScroll(conn)
+                            .align(Alignment.BottomCenter)
+                            .graphicsLayer(alpha = otherVisibility)
+                    ) {
+                        editorContent(conn)
                     }
                 }
 
@@ -241,7 +353,7 @@ enum class TopSheetState { Expanded, HalfExpanded }
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun rememberTopSheetState() = remember {
-    AnchoredDraggableState<TopSheetState>(
+    AnchoredDraggableState(
         initialValue = TopSheetState.HalfExpanded,
         anchors = DraggableAnchors { },
         positionalThreshold = { it * .1f },
@@ -260,8 +372,8 @@ fun TopSheet(
 ) {
     val localDensity = LocalDensity.current
 
-    val navigationBarHeight = LocalWindowInsets.current.calculateBottomPadding()
-        .coerceAtLeast(16.dp)
+    val navigationBarHeightDp =
+        LocalWindowInsets.current.calculateBottomPadding().coerceAtLeast(16.dp)
 
     var isFlinging by remember { mutableStateOf(false) }
 
@@ -269,34 +381,35 @@ fun TopSheet(
         modifier = modifier,
         contentAlignment = Alignment.TopCenter,
     ) {
-        val fullHeight = constraints.maxHeight.toFloat()
-        val halfHeight = fullHeight / 1.85f
+        val fullHeightPx = constraints.maxHeight.toFloat()
+        val halfHeightPx = fullHeightPx / 1.85f
 
-        val expandHeight =
-            with(localDensity) { (fullHeight - navigationBarHeight.toPx() - 16.dp.toPx()) }
+        val expandHeightPx =
+            with(localDensity) { (fullHeightPx - navigationBarHeightDp.toPx() - 16.dp.toPx()) }
+        val expandHeightDp =
+            with(localDensity) { expandHeightPx.toDp() }
 
-        val anchors = DraggableAnchors {
-            TopSheetState.HalfExpanded at halfHeight
-            TopSheetState.Expanded at expandHeight
+        val anchors = remember(halfHeightPx, expandHeightPx) {
+            DraggableAnchors {
+                TopSheetState.HalfExpanded at halfHeightPx
+                TopSheetState.Expanded at expandHeightPx
+            }
         }
 
         state.updateAnchors(anchors)
 
-        val height =
-            with(localDensity) { expandHeight.toDp() }
-
-        val conn = remember(expandHeight) {
+        val conn = remember(anchors) {
             object : NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                     val shouldScroll = anchors.positionOf(state.currentValue) != state.offset
                     if (shouldScroll) {
-                        return state.dispatchRawDelta(available.y).let { available }
+                        return state.dispatchRawDelta(available.y).let { available.copy(x = 0f) }
                     }
 
                     return when (state.currentValue) {
                         TopSheetState.Expanded -> super.onPreScroll(available, source)
                         TopSheetState.HalfExpanded -> state.dispatchRawDelta(available.y)
-                            .let { available }
+                            .let { available.copy(x = 0f) }
                     }
                 }
 
@@ -309,7 +422,7 @@ fun TopSheet(
                         TopSheetState.Expanded -> {
                             if (!isFlinging) {
                                 state.dispatchRawDelta(available.y)
-                                available
+                                available.copy(x = 0f)
                             } else {
                                 Offset.Zero
                             }
@@ -328,7 +441,7 @@ fun TopSheet(
 
                     if (shouldFling) {
                         return state.settle(available.y.coerceIn(-200f, 200f))
-                            .let { available }
+                            .let { available.copy(x = 0f) }
                     }
 
                     isFlinging = true
@@ -348,14 +461,15 @@ fun TopSheet(
 
         Box(
             modifier = Modifier
-                .offset { IntOffset(x = 0, y = -(expandHeight - state.offset).roundToInt()) }
+                .offset { IntOffset(x = 0, y = -(expandHeightPx - state.offset).roundToInt()) }
                 .background(
                     colorEditor,
                     RoundedCornerShape(bottomStart = 48.dp, bottomEnd = 48.dp)
                 )
                 .fillMaxWidth()
                 .anchoredDraggable(state, orientation = Orientation.Vertical)
-                .height(height),
+                .height(expandHeightDp),
+
             content = {
                 content(
                     conn,

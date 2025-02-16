@@ -36,58 +36,22 @@ fun measureText(text: String, style: TextStyle): IntSize {
     val textMeasurer = rememberTextMeasurer()
     return textMeasurer.measure(text, style).size
 }
-//
-//@Composable
-//fun calcFontHeight(
-//    text: String = "SAMPLE 1234567890",
-//    style: TextStyle = MaterialTheme.typography.displayLarge,
-//): Dp {
-//    val intrinsics = ParagraphIntrinsics(
-//        text = text,
-//        style = style,
-//        density = LocalDensity.current,
-//        fontFamilyResolver = createFontFamilyResolver(LocalContext.current)
-//    )
-//
-//    val paragraph = Paragraph(
-//        paragraphIntrinsics = intrinsics,
-//        constraints = Constraints(maxWidth = ceil(1000f).toInt()),
-//        maxLines = 1,
-//        ellipsis = false
-//    )
-//
-//    return with(LocalDensity.current) {
-//        paragraph.height.toDp()
-//    }
-//}
-//
-//@Composable
-//fun calcAdaptiveFont(
-//    height: Float,
-//    width: Float,
-//    minFontSize: TextUnit,
-//    maxFontSize: TextUnit,
-//    text: String = "SAMPLE 1234567890",
-//    style: TextStyle = MaterialTheme.typography.displayLarge,
-//): TextUnit {
-//    var measureFontSize = calcMaxFont(height = height, text = text, style = style)
-//
-//    var intrinsics = ParagraphIntrinsics(
-//        text = text,
-//        style = style.copy(fontSize = measureFontSize),
-//        density = LocalDensity.current,
-//        fontFamilyResolver = createFontFamilyResolver(LocalContext.current)
-//    )
-//
-//    while (intrinsics.maxIntrinsicWidth > width && measureFontSize > minFontSize) {
-//        measureFontSize *= 0.9f
-//        intrinsics = ParagraphIntrinsics(
-//            text = text,
-//            style = style.copy(fontSize = measureFontSize),
-//            density = LocalDensity.current,
-//            fontFamilyResolver = createFontFamilyResolver(LocalContext.current)
-//        )
-//    }
-//
-//    return min(max(minFontSize, measureFontSize), maxFontSize)
-//}
+
+@Composable
+fun calcAdaptiveFont(
+    height: Float,
+    width: Float,
+    minFontSize: TextUnit,
+    maxFontSize: TextUnit,
+    text: String = "SAMPLE 1234567890",
+    style: TextStyle = MaterialTheme.typography.displayLarge,
+): TextUnit {
+    var measureFontSize = calcMaxFont(height = height, text = text, style = style)
+    val measureTextSize = measureText(text, style.copy(fontSize = measureFontSize))
+
+    if (measureTextSize.width > width) {
+        measureFontSize *= width / measureTextSize.width
+    }
+
+    return min(max(minFontSize, measureFontSize), maxFontSize)
+}
