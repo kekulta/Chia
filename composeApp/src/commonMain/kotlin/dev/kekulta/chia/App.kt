@@ -285,7 +285,7 @@ fun TopSheet(
         val height =
             with(localDensity) { expandHeight.toDp() }
 
-        val conn = remember {
+        val conn = remember(expandHeight) {
             object : NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                     val shouldScroll = anchors.positionOf(state.currentValue) != state.offset
