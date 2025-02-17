@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
@@ -29,17 +31,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.input.OutputTransformation
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.delete
 import androidx.compose.foundation.text.input.insert
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.MaterialTheme
@@ -55,30 +54,68 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.kekulta.chia.util.calcAdaptiveFont
 import kotlinx.coroutines.awaitCancellation
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+
+@Composable
+fun TransactionsList(
+    modifier: Modifier = Modifier,
+    scrollableState: LazyListState = rememberLazyListState()
+) {
+    LazyColumn(
+        state = scrollableState,
+        reverseLayout = true,
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        items(50) {
+            Text(
+                "El: $it",
+                modifier = Modifier.clickable { println("El: $it") })
+        }
+    }
+}
+
+val DecimalSeparatedTransformation = OutputTransformation {
+    val wholePart =
+        originalText.takeWhile { it != '.' }.toString()
+
+    val count = wholePart.length / 3
+    val offset = (wholePart.length % 3)
+
+    if (offset == 0) {
+        repeat(count - 1) {
+            insert(3 * (it + 1) + it, ",")
+        }
+    } else {
+        repeat(count) {
+            insert(offset + 3 * it + it, ",")
+        }
+    }
+}
+
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
@@ -90,7 +127,6 @@ fun App() {
             .asPaddingValues()
 
         val textState = rememberTextFieldState()
-        val focusRequester = remember { FocusRequester() }
 
         CompositionLocalProvider(LocalWindowInsets provides windowInsets) {
             Box(modifier = Modifier.fillMaxSize().background(colorBackground)) {
@@ -101,98 +137,18 @@ fun App() {
                     modifier = Modifier.align(Alignment.TopCenter),
                     topSheetState = topSheetState,
                     transactionsState = listState,
-                    transactionsContent = {
-                        items(50) {
-                            Text(
-                                "El: $it",
-                                modifier = Modifier.clickable { println("El: $it") })
-                        }
+                    transactionsContent = { conn ->
+                        TransactionsList(
+                            Modifier
+                                .fillMaxWidth()
+                                .nestedScroll(conn)
+                        )
                     },
                     editorContent = {
-
-                        val transformation = OutputTransformation {
-                            val wholePart =
-                                originalText.takeWhile { it != '.' }.toString()
-
-                            val count = wholePart.length / 3
-                            val offset = (wholePart.length % 3)
-
-                            if (offset == 0) {
-                                repeat(count - 1) {
-                                    insert(3 * (it + 1) + it, ",")
-                                }
-                            } else {
-                                repeat(count) {
-                                    insert(offset + 3 * it + it, ",")
-                                }
-                            }
-
-
-
-                            if (originalText.lastOrNull() == '.') {
-                                append(buildAnnotatedString {
-                                    withStyle(
-                                        SpanStyle(
-                                            color = Color.Red
-                                        )
-                                    ) {
-                                        append("0")
-                                    }
-                                })
-                            }
-                        }
-
-                        BoxWithConstraints(
-                            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp)
-                        ) {
-                            InterceptPlatformTextInput(
-                                interceptor = { _, _ -> awaitCancellation() },
-                                content = {
-                                    val style = MaterialTheme.typography.displayLarge.copy(
-                                        color = colorOnEditor,
-                                        textAlign = TextAlign.End,
-                                        fontSize = calcAdaptiveFont(
-                                            height = constraints.maxHeight.toFloat(),
-                                            width = constraints.maxWidth.toFloat(),
-                                            minFontSize = MaterialTheme.typography.displayLarge.fontSize,
-                                            maxFontSize = 100.sp,
-                                            text = textState.text.toString().let {
-                                                val count = it.length / 3
-                                                val offset = it.length % 3
-
-                                                if (offset == 0) {
-                                                    it + ",".repeat((count - 1).coerceAtLeast(0))
-                                                } else {
-                                                    it + ",".repeat(count)
-                                                }
-                                            }
-                                        )
-                                    )
-
-                                    val state = rememberScrollState()
-
-                                    LazyRow {
-                                        item {
-                                            Text("RUB")
-                                        }
-                                        item {
-                                            BasicTextField(
-                                                outputTransformation = transformation,
-                                                modifier = Modifier.focusRequester(focusRequester).width(IntrinsicSize.Min),
-                                                lineLimits = TextFieldLineLimits.SingleLine,
-                                                state = textState,
-                                                textStyle = style,
-                                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                            )
-                                        }
-                                    }
-                                },
-                            )
-                        }
-
-                        LaunchedEffect(Unit) {
-                            focusRequester.requestFocus()
-                        }
+                        EditorTextField(
+                            textState = textState,
+                            modifier = Modifier.align(Alignment.BottomEnd)
+                        )
                     },
                     keyboardContent = {
                         Keyboard(
@@ -211,83 +167,107 @@ fun App() {
 }
 
 @Composable
-fun Keyboard(modifier: Modifier = Modifier, textState: TextFieldState) {
-    val pad = 6.dp
-
-    fun add(num: String) {
-        textState.edit {
-            if (num == ".") {
-                val index = textState.text.indexOf('.')
-                if (index != -1 && !selection.contains(index)) {
-                    return
-                }
+fun MeasureViewSize(
+    viewToMeasure: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    measureConstraints: Constraints? = null,
+    content: @Composable (DpSize) -> Unit,
+) {
+    SubcomposeLayout(modifier = modifier) { constraints ->
+        val measuredSize = subcompose("viewToMeasure") {
+            viewToMeasure()
+        }[0].measure(measureConstraints ?: constraints)
+            .let {
+                DpSize(
+                    width = it.width.toDp(),
+                    height = it.height.toDp()
+                )
             }
 
-            if (hasSelection) {
-                replace(selection.start, selection.end, num)
-                placeCursorBeforeCharAt(selection.end)
-            } else {
-                insert(selection.start, num)
-            }
+        val contentPlaceable = subcompose("content") {
+            content(measuredSize)
+        }.firstOrNull()?.measure(constraints)
+
+        layout(contentPlaceable?.width ?: 0, contentPlaceable?.height ?: 0) {
+            contentPlaceable?.place(0, 0)
+        }
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun EditorTextField(textState: TextFieldState, modifier: Modifier = Modifier) {
+    val focusRequester = remember { FocusRequester() }
+
+    fun produceItems(scale: Float) = buildList<@Composable (() -> Unit)> {
+        add @Composable {
+            Text(
+                modifier = Modifier.padding(start = 24.dp).padding(end = 24.dp * scale),
+                text = "RUB",
+                style = MaterialTheme.typography.displayLarge,
+                fontSize = MaterialTheme.typography.displayLarge.fontSize * scale,
+                color = colorOnEditor,
+            )
+        }
+
+        add @Composable {
+            BasicTextField(
+                outputTransformation = DecimalSeparatedTransformation,
+                modifier = Modifier.focusRequester(focusRequester)
+                    .width(IntrinsicSize.Min),
+                lineLimits = TextFieldLineLimits.SingleLine,
+                state = textState,
+                textStyle = MaterialTheme.typography.displayLarge.copy(
+                    color = colorOnEditor,
+                    textAlign = TextAlign.End,
+                    fontSize = 100.sp * scale
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            )
         }
     }
 
-    fun remove() {
-        textState.edit {
-            if (hasSelection) {
-                delete(selection.start, selection.end)
-            } else if (selection.start > 0) {
-                delete(selection.start - 1, selection.end)
-            }
-        }
-    }
-
-    Box(
-        modifier = modifier
+    BoxWithConstraints(
+        modifier = modifier,
     ) {
-        Row {
-            Column(modifier = Modifier.weight(3f)) {
-                repeat(3) { row ->
-                    Row(Modifier.weight(1f)) {
-                        repeat(3) { col ->
-                            val num = (10 - ((col + 1) + row * 3)).toString()
-                            KeyboardButton(
-                                modifier = Modifier.padding(pad).weight(1f),
-                                type = KeyboardButtonType.DEFAULT,
-                                text = num,
-                                onClick = { add(num) }
-                            )
+        InterceptPlatformTextInput(interceptor = { _, _ -> awaitCancellation() }) {
+            val itemsToMeasure = remember(textState) { produceItems(1f) }
+
+            MeasureViewSize(
+                viewToMeasure = {
+                    Row {
+                        Spacer(modifier = Modifier.width(24.dp))
+                        itemsToMeasure.forEach { it() }
+                        Spacer(modifier = Modifier.width(24.dp))
+                    }
+                },
+                measureConstraints = Constraints(),
+            ) { size ->
+                val maxWidth = with(LocalDensity.current) { constraints.maxWidth.toDp() }
+                val scale =
+                    (if (maxWidth >= size.width) 1f else maxWidth / size.width).coerceAtLeast(0.45f)
+
+                val itemsToDraw = remember(textState, scale) { produceItems(scale) }
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    LazyRow(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        if (textState.text.isNotEmpty()) {
+                            itemsToDraw.forEach { item { it() } }
                         }
                     }
-                }
 
-                Row(modifier = Modifier.weight(1f)) {
-                    KeyboardButton(
-                        modifier = Modifier.padding(pad).weight(2f),
-                        type = KeyboardButtonType.DEFAULT,
-                        text = "0"
-                    )
-
-                    KeyboardButton(
-                        modifier = Modifier.padding(pad).weight(1f),
-                        type = KeyboardButtonType.DEFAULT,
-                        text = ".",
-                        onClick = { add(".") }
-                    )
+                    if (scale > 0.45f) Spacer(modifier = Modifier.width(24.dp))
                 }
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                KeyboardButton(
-                    modifier = Modifier.padding(pad).weight(1f),
-                    type = KeyboardButtonType.DELETE,
-                    onClick = { remove() }
-                )
-                KeyboardButton(
-                    modifier = Modifier.padding(pad).weight(3f),
-                    type = KeyboardButtonType.PRIMARY
-                )
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
     }
 }
 
@@ -297,7 +277,7 @@ fun TopSheetEditorLayout(
     topSheetState: AnchoredDraggableState<TopSheetState>,
     transactionsState: LazyListState,
     modifier: Modifier = Modifier,
-    transactionsContent: LazyListScope.() -> Unit,
+    transactionsContent: @Composable (NestedScrollConnection) -> Unit,
     editorContent: @Composable BoxScope.(NestedScrollConnection) -> Unit,
     keyboardContent: @Composable BoxScope.() -> Unit,
 ) {
@@ -334,14 +314,8 @@ fun TopSheetEditorLayout(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(modifier = Modifier.weight(1f)) {
-                    LazyColumn(
-                        state = transactionsState,
-                        reverseLayout = true,
-                        modifier = Modifier.fillMaxWidth().nestedScroll(conn)
-                            .graphicsLayer(alpha = listVisibility),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        transactionsContent()
+                    Box(modifier = Modifier.alpha(listVisibility)) {
+                        transactionsContent(conn)
                     }
 
                     if (listVisibility == 0f) {
