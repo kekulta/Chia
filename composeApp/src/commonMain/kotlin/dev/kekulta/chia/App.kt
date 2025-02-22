@@ -1,8 +1,5 @@
 package dev.kekulta.chia
 
-
-import androidx.compose.animation.core.exponentialDecay
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,7 +12,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,26 +23,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.input.OutputTransformation
-import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.insert
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,68 +42,51 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.SubcomposeLayout
-import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.awaitCancellation
 import org.jetbrains.compose.ui.tooling.preview.Preview
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
-
 @Composable
-fun TransactionsList(
+fun Tag(
+    value: String,
     modifier: Modifier = Modifier,
-    scrollableState: LazyListState = rememberLazyListState()
+    onClick: () -> Unit = {},
 ) {
-    LazyColumn(
-        state = scrollableState,
-        reverseLayout = true,
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .height(44.dp)
+            .clip(CircleShape)
+            .clickable { onClick() }
+            .then(modifier)
     ) {
-        items(50) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                "El: $it",
-                modifier = Modifier.clickable { println("El: $it") })
+                modifier = Modifier.padding(horizontal = 16.dp),
+                text = value,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
-
-val DecimalSeparatedTransformation = OutputTransformation {
-    val wholePart =
-        originalText.takeWhile { it != '.' }.toString()
-
-    val count = wholePart.length / 3
-    val offset = (wholePart.length % 3)
-
-    if (offset == 0) {
-        repeat(count - 1) {
-            insert(3 * (it + 1) + it, ",")
-        }
-    } else {
-        repeat(count) {
-            insert(offset + 3 * it + it, ",")
-        }
-    }
-}
-
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
@@ -126,6 +97,8 @@ fun App() {
             .systemBars
             .asPaddingValues()
 
+
+        val focusRequester = remember { FocusRequester() }
         val textState = rememberTextFieldState()
 
         CompositionLocalProvider(LocalWindowInsets provides windowInsets) {
@@ -144,11 +117,32 @@ fun App() {
                                 .nestedScroll(conn)
                         )
                     },
-                    editorContent = {
-                        EditorTextField(
-                            textState = textState,
-                            modifier = Modifier.align(Alignment.BottomEnd)
-                        )
+                    editorContent = { conn ->
+                        Column(
+                            modifier = Modifier.matchParentSize(),
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text("FIRST")
+                            EditorTextField(
+                                textState = textState,
+                                focusRequester = focusRequester,
+                            )
+                            LazyRow(
+                                modifier = Modifier.nestedScroll(conn),
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                            ) {
+                                items(7) {
+                                    Tag("El #$it")
+                                }
+                                item {
+                                    Spacer(modifier = Modifier.width(24.dp))
+                                }
+                                item {
+                                    Tag("New")
+                                }
+                            }
+                        }
                     },
                     keyboardContent = {
                         Keyboard(
@@ -158,6 +152,7 @@ fun App() {
                                 .padding(bottom = 4.dp)
                                 .padding(horizontal = 6.dp)
                                 .aspectRatio(1f).fillMaxSize(),
+                            onKeyPressed = { focusRequester.requestFocus() },
                             textState = textState,
                         )
                     })
@@ -192,173 +187,6 @@ fun MeasureViewSize(
             contentPlaceable?.place(0, 0)
         }
     }
-}
-
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
-fun EditorTextField(textState: TextFieldState, modifier: Modifier = Modifier) {
-    val focusRequester = remember { FocusRequester() }
-
-    fun produceItems(scale: Float) = buildList<@Composable (() -> Unit)> {
-        add @Composable {
-            Text(
-                modifier = Modifier.padding(start = 24.dp).padding(end = 24.dp * scale),
-                text = "RUB",
-                style = MaterialTheme.typography.displayLarge,
-                fontSize = MaterialTheme.typography.displayLarge.fontSize * scale,
-                color = colorOnEditor,
-            )
-        }
-
-        add @Composable {
-            BasicTextField(
-                outputTransformation = DecimalSeparatedTransformation,
-                modifier = Modifier.focusRequester(focusRequester)
-                    .width(IntrinsicSize.Min),
-                lineLimits = TextFieldLineLimits.SingleLine,
-                state = textState,
-                textStyle = MaterialTheme.typography.displayLarge.copy(
-                    color = colorOnEditor,
-                    textAlign = TextAlign.End,
-                    fontSize = 100.sp * scale
-                ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            )
-        }
-    }
-
-    BoxWithConstraints(
-        modifier = modifier,
-    ) {
-        InterceptPlatformTextInput(interceptor = { _, _ -> awaitCancellation() }) {
-            val itemsToMeasure = remember(textState) { produceItems(1f) }
-
-            MeasureViewSize(
-                viewToMeasure = {
-                    Row {
-                        Spacer(modifier = Modifier.width(24.dp))
-                        itemsToMeasure.forEach { it() }
-                        Spacer(modifier = Modifier.width(24.dp))
-                    }
-                },
-                measureConstraints = Constraints(),
-            ) { size ->
-                val maxWidth = with(LocalDensity.current) { constraints.maxWidth.toDp() }
-                val scale =
-                    (if (maxWidth >= size.width) 1f else maxWidth / size.width).coerceAtLeast(0.45f)
-
-                val itemsToDraw = remember(textState, scale) { produceItems(scale) }
-
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    LazyRow(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        if (textState.text.isNotEmpty()) {
-                            itemsToDraw.forEach { item { it() } }
-                        }
-                    }
-
-                    if (scale > 0.45f) Spacer(modifier = Modifier.width(24.dp))
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun TopSheetEditorLayout(
-    topSheetState: AnchoredDraggableState<TopSheetState>,
-    transactionsState: LazyListState,
-    modifier: Modifier = Modifier,
-    transactionsContent: @Composable (NestedScrollConnection) -> Unit,
-    editorContent: @Composable BoxScope.(NestedScrollConnection) -> Unit,
-    keyboardContent: @Composable BoxScope.() -> Unit,
-) {
-    Box(modifier = modifier.fillMaxSize()) {
-        val halfExpandedPos = topSheetState.anchors.positionOf(TopSheetState.HalfExpanded)
-            .takeIf { !it.isNaN() } ?: 0f
-        val expandedPos = topSheetState.anchors.positionOf(TopSheetState.Expanded)
-            .takeIf { !it.isNaN() } ?: 0f
-
-        val navigationBarHeight = LocalWindowInsets.current.calculateBottomPadding()
-            .coerceAtLeast(16.dp)
-
-        val keyboardHeight =
-            with(LocalDensity.current) { abs(expandedPos - halfExpandedPos + navigationBarHeight.toPx() + 16.dp.toPx()).toDp() }
-
-        Box(
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(keyboardHeight)
-        ) {
-            keyboardContent()
-        }
-
-        TopSheet(topSheetState) { conn, progress ->
-            val otherVisibility = 1 - (progress / 0.5f).coerceIn(0f, 1f)
-            val listVisibility = ((progress - 0.5f) / 0.5f).coerceIn(0f, 1f)
-
-            LaunchedEffect(topSheetState.currentValue) {
-                if (topSheetState.currentValue == TopSheetState.HalfExpanded) {
-                    transactionsState.scrollToItem(0)
-                }
-            }
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    Box(modifier = Modifier.alpha(listVisibility)) {
-                        transactionsContent(conn)
-                    }
-
-                    if (listVisibility == 0f) {
-                        Box(modifier = Modifier.matchParentSize().nestedScroll(conn))
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .nestedScroll(conn)
-                            .align(Alignment.BottomCenter)
-                            .graphicsLayer(alpha = otherVisibility)
-                    ) {
-                        editorContent(conn)
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .padding(bottom = 10.dp, top = 20.dp)
-                        .size(width = 36.dp, height = 8.dp)
-                        .background(colorOnEditor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                )
-            }
-        }
-    }
-}
-
-val LocalWindowInsets = compositionLocalOf { PaddingValues(0.dp) }
-
-enum class TopSheetState { Expanded, HalfExpanded }
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun rememberTopSheetState() = remember {
-    AnchoredDraggableState(
-        initialValue = TopSheetState.HalfExpanded,
-        anchors = DraggableAnchors { },
-        positionalThreshold = { it * .1f },
-        snapAnimationSpec = spring(),
-        velocityThreshold = { 0f },
-        decayAnimationSpec = exponentialDecay(frictionMultiplier = 3f)
-    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)

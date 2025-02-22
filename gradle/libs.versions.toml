@@ -3,23 +3,25 @@ agp = "8.5.2"
 android-compileSdk = "35"
 android-minSdk = "24"
 android-targetSdk = "35"
-androidx-activityCompose = "1.10.0"
+androidx-activity-compose = "1.10.0"
 androidx-lifecycle = "2.8.4"
 compose-multiplatform = "1.7.0"
 kotlin = "2.1.0"
 koin = "4.0.2"
 material = "1.12.0"
-materialKolor = "2.0.2"
+material-kolor = "2.0.2"
+datetime = "0.6.2"
 
 [libraries]
-androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity-compose" }
 androidx-lifecycle-viewmodel = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-runtime-compose = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
 koin-core = { group = "io.insert-koin", name = "koin-core", version.ref = "koin" }
 koin-compose = { group = "io.insert-koin", name = "koin-compose", version.ref = "koin" }
 koin-compose-viewmodel = { group = "io.insert-koin", name = "koin-compose-viewmodel", version.ref = "koin" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
-material-kolor = { module = "com.materialkolor:material-kolor", version.ref = "materialKolor" }
+material-kolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "material-kolor" }
+kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "datetime" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

@@ -48,6 +48,7 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)
 
             implementation(libs.material.kolor)
+            implementation(libs.kotlinx.datetime)
         }
     }
 }

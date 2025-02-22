@@ -11,12 +11,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+
+sealed interface KeyType {
+    data class Character(val value: Char) : KeyType
+    data object Backspace : KeyType
+    data object Enter : KeyType
+}
+
 @Composable
-fun Keyboard(modifier: Modifier = Modifier, textState: TextFieldState) {
+fun Keyboard(
+    modifier: Modifier = Modifier,
+    onKeyPressed: ((KeyType) -> Unit)? = null,
+    textState: TextFieldState? = null,
+) {
     val pad = 6.dp
 
     fun add(num: String) {
-        textState.edit {
+        textState?.edit {
             if (num == ".") {
                 val index = textState.text.indexOf('.')
                 if (index != -1 && !selection.contains(index)) {
@@ -34,7 +45,7 @@ fun Keyboard(modifier: Modifier = Modifier, textState: TextFieldState) {
     }
 
     fun remove() {
-        textState.edit {
+        textState?.edit {
             if (hasSelection) {
                 delete(selection.start, selection.end)
             } else if (selection.start > 0) {
@@ -56,7 +67,10 @@ fun Keyboard(modifier: Modifier = Modifier, textState: TextFieldState) {
                                 modifier = Modifier.padding(pad).weight(1f),
                                 type = KeyboardButtonType.DEFAULT,
                                 text = num,
-                                onClick = { add(num) }
+                                onClick = {
+                                    onKeyPressed?.invoke(KeyType.Character(num.first()))
+                                    add(num)
+                                },
                             )
                         }
                     }
@@ -66,14 +80,21 @@ fun Keyboard(modifier: Modifier = Modifier, textState: TextFieldState) {
                     KeyboardButton(
                         modifier = Modifier.padding(pad).weight(2f),
                         type = KeyboardButtonType.DEFAULT,
-                        text = "0"
+                        text = "0",
+                        onClick = {
+                            onKeyPressed?.invoke(KeyType.Character('0'))
+                            add("0")
+                        },
                     )
 
                     KeyboardButton(
                         modifier = Modifier.padding(pad).weight(1f),
                         type = KeyboardButtonType.DEFAULT,
                         text = ".",
-                        onClick = { add(".") }
+                        onClick = {
+                            onKeyPressed?.invoke(KeyType.Character('.'))
+                            add(".")
+                        },
                     )
                 }
             }
@@ -81,11 +102,15 @@ fun Keyboard(modifier: Modifier = Modifier, textState: TextFieldState) {
                 KeyboardButton(
                     modifier = Modifier.padding(pad).weight(1f),
                     type = KeyboardButtonType.DELETE,
-                    onClick = { remove() }
+                    onClick = {
+                        onKeyPressed?.invoke(KeyType.Backspace)
+                        remove()
+                    }
                 )
                 KeyboardButton(
                     modifier = Modifier.padding(pad).weight(3f),
-                    type = KeyboardButtonType.PRIMARY
+                    type = KeyboardButtonType.PRIMARY,
+                    onClick = { onKeyPressed?.invoke(KeyType.Enter) }
                 )
             }
         }
